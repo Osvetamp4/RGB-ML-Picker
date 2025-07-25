@@ -28,5 +28,4 @@ source2 = RGBUnit(255,255,255)
 
 
 
-print(unit1.distance_to(source), unit1.distance_to(source2))
-print(unit2.distance_to(source), unit2.distance_to(source2))
+print("RGB")
