@@ -1,12 +1,13 @@
 import math
 
 class RGBUnit:
-    def __init__(self, r=0, g=0, b=0):
+    def __init__(self, r=0, g=0, b=0,label = ""):
         if r > 255 or g > 255 or b > 255:
             raise ValueError("Color values must not exceed 255")
         self.r = r
         self.g = g
         self.b = b
+        self.label = label
 
 
     #Gets the distance between two RGBUnits. This is given in the form of a float.
@@ -18,9 +19,14 @@ class RGBUnit:
         return math.sqrt(rDiff + gDiff + bDiff)
 
 
-unit1 = RGBUnit(52,34,69)
+unit1 = RGBUnit(100,0,0)
+unit2 = RGBUnit(0,0,100)
+
+source = RGBUnit(0,0,0)
+
+source2 = RGBUnit(255,255,255)
 
 
-unit2 = RGBUnit(82,63,245)
 
-print(unit1.distance_to(unit2))
+print(unit1.distance_to(source), unit1.distance_to(source2))
+print(unit2.distance_to(source), unit2.distance_to(source2))
