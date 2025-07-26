@@ -1,6 +1,23 @@
 import math
+from enum import Enum
+
 
 class RGBUnit:
+    
+    class ColorFormat(Enum):
+        Red = ("Red", 0)
+        Green = ("Green", 1)
+        Blue = ("Blue", 2)
+        Yellow = ("Yellow", 3)
+        Orange = ("Orange", 4)
+        Pink = ("Pink", 5)
+        Purple = ("Purple", 6)
+        Brown = ("Brown", 7)
+        Grey = ("Grey", 8)
+        Black = ("Black", 9)
+        White = ("White", 10)
+
+
     def __init__(self, r=0, g=0, b=0,label = ""):
         if r > 255 or g > 255 or b > 255:
             raise ValueError("Color values must not exceed 255")
