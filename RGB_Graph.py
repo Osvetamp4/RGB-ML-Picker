@@ -15,6 +15,7 @@ class RGB_Graph:
     def __init__(self,filepath,csv = False):
         self.RGBUnit_list = []
         self.RGB_color_clump = dict()
+        self.centroid_list = []
 
         if csv == False:
             self.digest_unclassified_RGB(filepath)
@@ -131,7 +132,16 @@ class RGB_Graph:
         ax.view_init(elev=20, azim=120)
 
         plt.show()
-        
+    
+    def init_centroid_points(self):
+        pass
+    
+    def K_Means(self):
+        data_point_list = []
+        for i in self.RGBUnit_list:
+            temp_list = [i.r,i.g,i.b]
+            data_point_list.append(temp_list)
+        data_point_matrix = np.array(data_point_list)
 
 
 
