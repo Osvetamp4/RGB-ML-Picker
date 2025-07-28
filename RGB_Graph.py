@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 
+import random
 
 
 class RGB_Graph:
@@ -133,10 +134,12 @@ class RGB_Graph:
 
         plt.show()
     
-    def init_centroid_points(self):
-        pass
+    def init_centroid_points(self,rgb_list):
+        ran_index = random.randint(0,len(rgb_list)-1)
+        first_centroid = rgb_list[ran_index]
     
     def K_Means(self):
+        #data_point_list is ordered list of triple lists (r,g,b) which are number values
         data_point_list = []
         for i in self.RGBUnit_list:
             temp_list = [i.r,i.g,i.b]

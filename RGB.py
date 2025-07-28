@@ -33,7 +33,7 @@ class RGBUnit:
         gDiff = abs(self.g - other.g) ** 2
         bDiff = abs(self.b - other.b) ** 2
 
-        return math.sqrt(rDiff + gDiff + bDiff)
+        return rDiff + gDiff + bDiff
 
 
 unit1 = RGBUnit(100,0,0)
