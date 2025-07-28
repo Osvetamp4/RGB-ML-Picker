@@ -7,6 +7,9 @@ import numpy as np
 
 import random
 
+import numpy as np
+from scipy.spatial.distance import cdist
+
 
 class RGB_Graph:
     
@@ -134,9 +137,68 @@ class RGB_Graph:
 
         plt.show()
     
-    def init_centroid_points(self,rgb_list):
+    def init_centroid_points(self,rgb_list,k):
+
+        fixed_data_point_array = np.array(rgb_list) #this is our static array of data points
+
+
         ran_index = random.randint(0,len(rgb_list)-1)
-        first_centroid = rgb_list[ran_index]
+        current_centroid = rgb_list[ran_index] #our very random first centroid point initialized.
+
+
+        output_centroid_list = [] #This is what we're going to output
+        output_centroid_list.append(current_centroid)
+
+
+        #We store the min distance to any centroid in this column vector here
+        centroid_column_vector = cdist(fixed_data_point_array, np.array([current_centroid]), metric='sqeuclidean').tolist()
+        for i in centroid_column_vector:
+            i.append(0)
+        centroid_column_vector = np.array(centroid_column_vector) #we updating min distance from any centroid here.
+
+
+
+        for i in range(k-1):
+            next_centroid_index = self.prob_distribute(centroid_column_vector) #use prob distribution to select our next centroid
+
+            next_centroid = rgb_list[next_centroid_index] #should be an array of 3 [r,g,b]
+
+
+            #calculate distance from all points to new centroid
+            temp_column_vector = cdist(fixed_data_point_array,np.array([next_centroid]),metric='sqeuclidean') 
+
+            #both temp and centroid column vector are ordered so they always match up.
+            #this function combs through centroid column vector to see if we can update the min distance of any point to any centroid.
+            for j in range(len(temp_column_vector)):
+                if temp_column_vector[j] < centroid_column_vector[j,0]:
+                    centroid_column_vector[j,0] = temp_column_vector[j]
+                    centroid_column_vector[j,1] = i + 1
+            output_centroid_list.append(next_centroid)
+
+        
+        
+
+        return output_centroid_list
+
+    def prob_distribute(self,column_vector):
+        total_weight = np.sum(column_vector[:, 0])
+
+        distance_column_vector = column_vector[:,0]
+        
+        select_random = random.random()
+
+        current_marker = 0.0
+
+        selected_data_point_index = 0
+
+        for iterator in range(len(distance_column_vector)):
+            current_marker += distance_column_vector[iterator]/total_weight
+            if current_marker > select_random:
+                selected_data_point_index = iterator
+                break
+        return selected_data_point_index
+
+
     
     def K_Means(self):
         #data_point_list is ordered list of triple lists (r,g,b) which are number values
@@ -146,11 +208,24 @@ class RGB_Graph:
             data_point_list.append(temp_list)
         data_point_matrix = np.array(data_point_list)
 
+        centroid_point_list = self.init_centroid_points(data_point_list,32)
+        print(centroid_point_list)
+
 
 
 
 unit = RGB_Graph("output.bin")
 
-unit.plot_3D()
+test_list = [
+    [5,5,5],
+    [6,7,3],
+    [11,7,8],
+    [10,5,4],
+    [100,100,100],
+    [110,90,120]
+]
+
+unit.init_centroid_points(test_list,2)
+#unit.plot_3D()
 #unit.digest_csv("colors.csv")
 
