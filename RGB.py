@@ -44,5 +44,3 @@ source = RGBUnit(0,0,0)
 source2 = RGBUnit(255,255,255)
 
 
-
-print("RGB")

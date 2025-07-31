@@ -137,13 +137,17 @@ class RGB_Graph:
 
         plt.show()
     
+
+    #tested!
+    #Takes a raw list of rgb data points as such: [r,g,b,color_value] and variable k to generate an initial set of centroid points
     def init_centroid_points(self,rgb_list,k):
 
-        fixed_data_point_array = np.array(rgb_list) #this is our static array of data points
+        fixed_data_point_array = np.array([row[:-1] for row in rgb_list]) #this is our static array of data points
+        
 
 
         ran_index = random.randint(0,len(rgb_list)-1)
-        current_centroid = rgb_list[ran_index] #our very random first centroid point initialized.
+        current_centroid = tuple(fixed_data_point_array[ran_index].tolist()) #our very random first centroid point initialized.
 
 
         output_centroid_list = [] #This is what we're going to output
@@ -156,12 +160,14 @@ class RGB_Graph:
             i.append(0)
         centroid_column_vector = np.array(centroid_column_vector) #we updating min distance from any centroid here.
 
-
+        
+        
 
         for i in range(k-1):
+            
             next_centroid_index = self.prob_distribute(centroid_column_vector) #use prob distribution to select our next centroid
 
-            next_centroid = rgb_list[next_centroid_index] #should be an array of 3 [r,g,b]
+            next_centroid = tuple(fixed_data_point_array[next_centroid_index].tolist()) #should be an array of 3 [r,g,b]
 
 
             #calculate distance from all points to new centroid
@@ -171,15 +177,19 @@ class RGB_Graph:
             #this function combs through centroid column vector to see if we can update the min distance of any point to any centroid.
             for j in range(len(temp_column_vector)):
                 if temp_column_vector[j] < centroid_column_vector[j,0]:
-                    centroid_column_vector[j,0] = temp_column_vector[j]
+                    centroid_column_vector[j,0] = temp_column_vector[j][0]
                     centroid_column_vector[j,1] = i + 1
             output_centroid_list.append(next_centroid)
+            
 
         
         
+        #re-add the color values
 
-        return output_centroid_list
+        return output_centroid_list,centroid_column_vector
 
+    #every entry of column_vector is: [distance from closest centroid, index of closest centroid]
+    #tested!
     def prob_distribute(self,column_vector):
         total_weight = np.sum(column_vector[:, 0])
 
@@ -204,12 +214,16 @@ class RGB_Graph:
         #data_point_list is ordered list of triple lists (r,g,b) which are number values
         data_point_list = []
         for i in self.RGBUnit_list:
-            temp_list = [i.r,i.g,i.b]
+            temp_list = (i.r,i.g,i.b,i.label.value[0])
             data_point_list.append(temp_list)
-        data_point_matrix = np.array(data_point_list)
+        
 
-        centroid_point_list = self.init_centroid_points(data_point_list,32)
-        print(centroid_point_list)
+        centroid_point_list,init_column_vector = self.init_centroid_points(data_point_list,32)
+        for i in range(len(init_column_vector)):
+            self.RGB_color_clump.setdefault(int(init_column_vector[i][1]), set()).add(data_point_list[i])
+        
+        print(self.RGB_color_clump[0])
+        print(centroid_point_list[0])
 
 
 
@@ -217,15 +231,34 @@ class RGB_Graph:
 unit = RGB_Graph("output.bin")
 
 test_list = [
-    [5,5,5],
-    [6,7,3],
-    [11,7,8],
-    [10,5,4],
-    [100,100,100],
-    [110,90,120]
+    (5,5,5,"color1"),
+    (6,7,3,"color1"),
+    (11,7,8,"color2"),
+    (10,5,4,"color2"),
+    (100,100,100,"color3"),
+    (110,90,120,"color3")
 ]
+#output = unit.init_centroid_points(test_list,2)
 
-unit.init_centroid_points(test_list,2)
-#unit.plot_3D()
-#unit.digest_csv("colors.csv")
+
+
+# test_column_vector = [
+#     [75,0],
+#     [0,0],
+#     [0,0],
+#     [25,0]
+# ]
+
+
+# prob_dictionary = dict()
+#unit.prob_distribute(np.array(test_column_vector))
+
+# for i in range(1000):
+#     distributed_selected_value = unit.prob_distribute(np.array(test_column_vector))
+#     prob_dictionary[distributed_selected_value] = prob_dictionary.get(distributed_selected_value,0) + 1
+# print(prob_dictionary)
+
+
+unit.K_Means()
+
 
