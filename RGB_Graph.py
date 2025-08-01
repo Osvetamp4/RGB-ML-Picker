@@ -139,10 +139,10 @@ class RGB_Graph:
     
 
     #tested!
-    #Takes a raw list of rgb data points as such: [r,g,b,color_value] and variable k to generate an initial set of centroid points
+    #Takes a raw list of rgb data points as such: [r,g,b,color_value] and variable k to generate a dictionary of clusters(and centroids)
     def init_centroid_points(self,rgb_list,k):
 
-        fixed_data_point_array = np.array([row[:-1] for row in rgb_list]) #this is our static array of data points
+        fixed_data_point_array = np.array([row[:-1] for row in rgb_list]) #we exclude the color_value for ease of calculation with cdist
         
 
 
@@ -185,8 +185,13 @@ class RGB_Graph:
         
         
         #re-add the color values
+        cluster_dictionary = dict()
+        
+        for i in range(len(centroid_column_vector)):
+            cluster_dictionary.setdefault(output_centroid_list[int(centroid_column_vector[i][1])], set()).add(rgb_list[i])
 
-        return output_centroid_list,centroid_column_vector
+
+        return cluster_dictionary
 
     #every entry of column_vector is: [distance from closest centroid, index of closest centroid]
     #tested!
@@ -207,6 +212,12 @@ class RGB_Graph:
                 selected_data_point_index = iterator
                 break
         return selected_data_point_index
+    
+    def calculate_new_centroids(self,current_dict):
+        current_centroid_list = []
+
+        for cluster in current_dict.values():
+            pass
 
 
     
@@ -218,12 +229,12 @@ class RGB_Graph:
             data_point_list.append(temp_list)
         
 
-        centroid_point_list,init_column_vector = self.init_centroid_points(data_point_list,32)
-        for i in range(len(init_column_vector)):
-            self.RGB_color_clump.setdefault(int(init_column_vector[i][1]), set()).add(data_point_list[i])
+        self.RGB_color_clump = self.init_centroid_points(data_point_list,32)
         
-        print(self.RGB_color_clump[0])
-        print(centroid_point_list[0])
+        
+        #add a loop
+
+        self.RGB_color_clump = self.calculate_new_centroids(self.RGB_color_clump)
 
 
 
@@ -238,7 +249,9 @@ test_list = [
     (100,100,100,"color3"),
     (110,90,120,"color3")
 ]
-#output = unit.init_centroid_points(test_list,2)
+output = unit.init_centroid_points(test_list,3)
+
+print(output)
 
 
 
@@ -259,6 +272,6 @@ test_list = [
 # print(prob_dictionary)
 
 
-unit.K_Means()
+#unit.K_Means()
 
 
