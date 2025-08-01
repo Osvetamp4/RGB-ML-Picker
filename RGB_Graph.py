@@ -37,6 +37,49 @@ class RGB_Graph:
                 #print(f"R: {r}, G: {g}, B: {b}, Color Number: {color_num}")
                 #create a RGB object here:
                 self.RGBUnit_list.append(RGBUnit(r,g,b,self.get_color_label(color_num)))
+    
+    #tested!
+    #generates the master header. At best should just be two bytes.
+    def generate_master_header(self,cluster_dictionary):
+        
+        number_of_clusters = len(cluster_dictionary.keys())
+        number_of_bytes = int(number_of_clusters / 255) + 1
+
+        byte_header_1 = bytes([number_of_bytes])
+        
+
+
+        byte_result = byte_header_1 +  number_of_clusters.to_bytes(number_of_bytes,byteorder='big')
+
+        return byte_result
+    
+
+    #Returns an ordered collection of bytes that represent a singular cluster.
+    #not tested
+    def generate_cluster_header(self,key,value):
+        number_of_points = len(value)
+        number_of_bytes = int(number_of_points/255) + 1
+
+        byte_header_1 = bytes([number_of_bytes])
+
+        byte_result = byte_header_1 + number_of_points.to_bytes(number_of_bytes,byteorder='big')
+
+        centroid_bytes = bytes(list(key))
+
+        byte_result = byte_result + centroid_bytes
+
+        for i in value:
+            point_byte_list = list(i)
+            point_byte_list[3] = self.get_color_number(point_byte_list[3])
+
+            point_byte_list = bytes(point_byte_list)
+            byte_result += point_byte_list
+        return byte_result
+    
+    def generate_classified_RGB(self,cluster_dictionary):
+        with open('classified.bin','wb') as binfile:
+            binfile.write(self.generate_master_header(cluster_dictionary))
+            
                 
 
     #returns the number based on the color name
@@ -213,16 +256,42 @@ class RGB_Graph:
                 break
         return selected_data_point_index
     
-    def calculate_new_centroids(self,current_dict):
+
+    #tested!
+    #returns a new cluster dictionary and previous old centroid list
+    def calculate_new_centroids(self,current_dict,rgb_list):
         current_centroid_list = []
+        old_centroid_list = current_dict.keys()
 
         for cluster in current_dict.values():
-            pass
+            arr = np.array([t[:-1] for t in cluster])
+            new_centroid = tuple(int(round(x)) for x in np.mean(arr,axis=0).tolist())
+            current_centroid_list.append(new_centroid)
+        
+        
+        
+        centroid_array = np.array(current_centroid_list)
+        data_point_array = np.array([row[:-1] for row in rgb_list])
+        print(centroid_array)
+
+        distance_matrix = cdist(data_point_array,centroid_array,metric='sqeuclidean')
+        distance_column_vector = np.argmin(distance_matrix, axis=1)
+        print(distance_matrix)
+        print(distance_column_vector)
+        new_cluster_dictionary = dict()
+
+        #distance_column_vector[rgb_point_index] = centroid_list index
+        for rgb_point_index in range(len(distance_column_vector)):
+            new_cluster_dictionary.setdefault(current_centroid_list[distance_column_vector[rgb_point_index]], set()).add(rgb_list[rgb_point_index])
+
+        return new_cluster_dictionary,old_centroid_list
+        
+        
 
 
     
     def K_Means(self):
-        #data_point_list is ordered list of triple lists (r,g,b) which are number values
+        #data_point_list is ordered list of triple lists (r,g,b,"label") which are number values
         data_point_list = []
         for i in self.RGBUnit_list:
             temp_list = (i.r,i.g,i.b,i.label.value[0])
@@ -232,9 +301,13 @@ class RGB_Graph:
         self.RGB_color_clump = self.init_centroid_points(data_point_list,32)
         
         
-        #add a loop
+        #add a loop here
 
-        self.RGB_color_clump = self.calculate_new_centroids(self.RGB_color_clump)
+        
+
+        self.RGB_color_clump,old_centroid_list = self.calculate_new_centroids(self.RGB_color_clump,data_point_list)
+
+        new_centroid_list = self.RGB_color_clump.keys()
 
 
 
@@ -253,6 +326,10 @@ output = unit.init_centroid_points(test_list,3)
 
 print(output)
 
+new_cluster_dictionary = unit.calculate_new_centroids(output,test_list)[0]
+
+print(new_cluster_dictionary)
+print((list(unit.generate_master_header(new_cluster_dictionary))))
 
 
 # test_column_vector = [
