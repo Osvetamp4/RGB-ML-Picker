@@ -16,7 +16,8 @@ class RGB_Graph:
     
 
     #we will use this to read 
-    def __init__(self,filepath,csv = False):
+    def __init__(self,filepath,csv = False,tolerance = 0.0001):
+        self.tolerance = tolerance
         self.RGBUnit_list = []
         self.RGB_color_clump = dict()
         self.centroid_list = []
@@ -226,6 +227,7 @@ class RGB_Graph:
 
         fixed_data_point_array = np.array([row[:-1] for row in rgb_list]) #we exclude the color_value for ease of calculation with cdist
         
+        total_inertia = 0
 
 
         ran_index = random.randint(0,len(rgb_list)-1)
@@ -256,12 +258,16 @@ class RGB_Graph:
             temp_column_vector = cdist(fixed_data_point_array,np.array([next_centroid]),metric='sqeuclidean') 
 
             #both temp and centroid column vector are ordered so they always match up.
-            #this function combs through centroid column vector to see if we can update the min distance of any point to any centroid.
+            #this inner for loop combs through centroid column vector to see if we can update the min distance of any point to any centroid.
             for j in range(len(temp_column_vector)):
                 if temp_column_vector[j] < centroid_column_vector[j,0]:
                     centroid_column_vector[j,0] = temp_column_vector[j][0]
                     centroid_column_vector[j,1] = i + 1
             output_centroid_list.append(next_centroid)
+        print(centroid_column_vector)
+        for data_point in centroid_column_vector:
+            total_inertia += data_point[0]
+        print(total_inertia)
             
 
         
@@ -273,7 +279,7 @@ class RGB_Graph:
             cluster_dictionary.setdefault(output_centroid_list[int(centroid_column_vector[i][1])], set()).add(rgb_list[i])
 
 
-        return cluster_dictionary
+        return cluster_dictionary,total_inertia
 
     #every entry of column_vector is: [distance from closest centroid, index of closest centroid]
     #tested!
@@ -311,12 +317,11 @@ class RGB_Graph:
         
         centroid_array = np.array(current_centroid_list)
         data_point_array = np.array([row[:-1] for row in rgb_list])
-        print(centroid_array)
+
 
         distance_matrix = cdist(data_point_array,centroid_array,metric='sqeuclidean')
         distance_column_vector = np.argmin(distance_matrix, axis=1)
-        print(distance_matrix)
-        print(distance_column_vector)
+
         new_cluster_dictionary = dict()
 
         #distance_column_vector[rgb_point_index] = centroid_list index
@@ -324,7 +329,7 @@ class RGB_Graph:
             new_cluster_dictionary.setdefault(current_centroid_list[distance_column_vector[rgb_point_index]], set()).add(rgb_list[rgb_point_index])
 
         return new_cluster_dictionary,old_centroid_list
-        
+    
         
 
 
@@ -337,7 +342,7 @@ class RGB_Graph:
             data_point_list.append(temp_list)
         
 
-        self.RGB_color_clump = self.init_centroid_points(data_point_list,32)
+        self.RGB_color_clump,current_inertia = self.init_centroid_points(data_point_list,32)
         
         
         #add a loop here
@@ -361,15 +366,15 @@ test_list = [
     (100,100,100,"Grey"),
     (110,90,120,"Grey")
 ]
-#output = unit.init_centroid_points(test_list,3)
+output = unit.init_centroid_points(test_list,3)
 
 
 
-#new_cluster_dictionary = unit.calculate_new_centroids(output,test_list)[0]
+new_cluster_dictionary = unit.calculate_new_centroids(output[0],test_list)[0]
 
 #unit.generate_classified_RGB(new_cluster_dictionary)
 
-unit.read_classified_RGB("classified.bin")
+#unit.read_classified_RGB("classified.bin")
 
 print(unit.trained_cluster_dictionary)
 # test_column_vector = [
