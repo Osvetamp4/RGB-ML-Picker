@@ -16,18 +16,20 @@ class RGB_Graph:
     
 
     #we will use this to read 
-    def __init__(self,filepath,csv = False,tolerance = 0.0001):
+    def __init__(self,filepath,k,filetype,tolerance = 0.0001):
         self.tolerance = tolerance
         self.RGBUnit_list = []
         self.RGB_color_clump = dict()
         self.centroid_list = []
         self.trained_cluster_dictionary = dict()
+        self.k=k
 
-        if csv == False:
-            self.digest_unclassified_RGB(filepath)
-        else:
-            self.digest_csv(filepath)
-        
+        if filetype == "csv":self.digest_csv(filepath)
+        elif filetype == "unclass": self.digest_unclassified_RGB(filepath)
+        elif filetype == "class": self.digest_classified_RGB(filepath)
+    
+
+    #Takes in an unclassified .bin file and then generates clusters out of it. From that it creates an actual classified .bin file
     #tested!
     def digest_unclassified_RGB(self,filepath):
         with open(filepath, 'rb') as binfile:
@@ -36,10 +38,16 @@ class RGB_Graph:
                 if not bytes_read or len(bytes_read) < 4:
                     break
                 r, g, b, color_num = bytes_read
-                #print(f"R: {r}, G: {g}, B: {b}, Color Number: {color_num}")
+
                 #create a RGB object here:
                 self.RGBUnit_list.append(RGBUnit(r,g,b,self.get_color_label(color_num)))
-    
+        self.K_Means()
+        self.generate_classified_RGB(self.RGB_color_clump)
+            
+    def printRGBUnit_list(self):
+        for i in self.RGBUnit_list:
+            print(i.r,i.g,i.b,i.label.value[0])
+
     #tested!
     #generates the master header. At best should just be two bytes.
     # such a list of bytes looks like: primer byte to describe number of the next bytes, bytes to describe the number of clusters.
@@ -100,8 +108,10 @@ class RGB_Graph:
         return int(result,2)
 
     #reads a classified rgb .bin file and compiles it into a dictionary field for ease of use
+    #dictionary field is self.trained_cluster_dictionary
+    #We will then connect this with K-nearest neighbors
     #tested!
-    def read_classified_RGB(self,filepath):
+    def digest_classified_RGB(self,filepath):
         with open(filepath,'rb') as binfile:
             
             primer_number = list(binfile.read(1))[0]
@@ -136,6 +146,8 @@ class RGB_Graph:
                 return color
         return None
 
+    #takes in a .csv file with rgb data points and generates an unclassified .bin file of those rgb data points
+    #tested and should work
     def digest_csv(self,filepath):
         data = []
         with open(filepath, 'r', newline='', encoding='utf-8') as csvfile:
@@ -264,10 +276,9 @@ class RGB_Graph:
                     centroid_column_vector[j,0] = temp_column_vector[j][0]
                     centroid_column_vector[j,1] = i + 1
             output_centroid_list.append(next_centroid)
-        print(centroid_column_vector)
         for data_point in centroid_column_vector:
             total_inertia += data_point[0]
-        print(total_inertia)
+        
             
 
         
@@ -285,6 +296,7 @@ class RGB_Graph:
     #tested!
     def prob_distribute(self,column_vector):
         total_weight = np.sum(column_vector[:, 0])
+        if total_weight == 0:print(column_vector)
 
         distance_column_vector = column_vector[:,0]
         
@@ -303,37 +315,48 @@ class RGB_Graph:
     
 
     #tested!
-    #returns a new cluster dictionary and previous old centroid list
+    #returns a new cluster dictionary and total inertia of that dictionary
     def calculate_new_centroids(self,current_dict,rgb_list):
+        total_inertia = 0
+        
         current_centroid_list = []
-        old_centroid_list = current_dict.keys()
+        
 
+        #This for loop calculates the new centroid for every cluster.
         for cluster in current_dict.values():
             arr = np.array([t[:-1] for t in cluster])
-            new_centroid = tuple(int(round(x)) for x in np.mean(arr,axis=0).tolist())
+            new_centroid = tuple(int(round(x)) for x in np.mean(arr,axis=0).tolist()) 
             current_centroid_list.append(new_centroid)
         
         
-        
+        #Turns the centroid list and rgb list into np arrays. 
         centroid_array = np.array(current_centroid_list)
+        #data_point_array is rgb_list ordered
         data_point_array = np.array([row[:-1] for row in rgb_list])
 
 
-        distance_matrix = cdist(data_point_array,centroid_array,metric='sqeuclidean')
-        distance_column_vector = np.argmin(distance_matrix, axis=1)
+        #Calculates every point's distance from every cluster
+        distance_matrix = cdist(data_point_array,centroid_array,metric='sqeuclidean') #rgb_list ordered!
+        #we collapse the matrix to get their smallest distance from a centroid.
+        distance_column_vector = np.argmin(distance_matrix, axis=1) #rgb_list ordered!
+        #np.argmin relies on the previously ordered distance_matrix with numbers as index values pointing back to distance_matrix
+
+
+
 
         new_cluster_dictionary = dict()
 
         #distance_column_vector[rgb_point_index] = centroid_list index
         for rgb_point_index in range(len(distance_column_vector)):
+            total_inertia += distance_matrix[rgb_point_index][distance_column_vector[rgb_point_index]]
             new_cluster_dictionary.setdefault(current_centroid_list[distance_column_vector[rgb_point_index]], set()).add(rgb_list[rgb_point_index])
 
-        return new_cluster_dictionary,old_centroid_list
+        return new_cluster_dictionary,total_inertia
     
         
 
 
-    
+    #Applies the K_Means algorithm. Result is in self.RGB_color_clump
     def K_Means(self):
         #data_point_list is ordered list of triple lists (r,g,b,"label") which are number values
         data_point_list = []
@@ -342,58 +365,39 @@ class RGB_Graph:
             data_point_list.append(temp_list)
         
 
-        self.RGB_color_clump,current_inertia = self.init_centroid_points(data_point_list,32)
+        self.RGB_color_clump,current_inertia = self.init_centroid_points(data_point_list,self.k)
+
+        new_inertia = 0 #diff between current and new will always be more than self.tolerance
+
+        while True:
+            print(current_inertia,"-",new_inertia,"=",abs(current_inertia - new_inertia))
+            #new_inertia is generated a new number
+            self.RGB_color_clump,new_inertia = self.calculate_new_centroids(self.RGB_color_clump,data_point_list)
+
+            if abs(current_inertia - new_inertia) <= self.tolerance:break
+
+            current_inertia = new_inertia
+        
+        
         
         
         #add a loop here
 
         
 
-        self.RGB_color_clump,old_centroid_list = self.calculate_new_centroids(self.RGB_color_clump,data_point_list)
-
-        new_centroid_list = self.RGB_color_clump.keys()
+unit = RGB_Graph("colors.csv",32,"csv")
 
 
 
 
-unit = RGB_Graph("output.bin")
 
-test_list = [
-    (5,5,5,"Black"),
-    (6,7,3,"Black"),
-    (11,7,8,"Black"),
-    (10,5,4,"Black"),
-    (100,100,100,"Grey"),
-    (110,90,120,"Grey")
-]
-output = unit.init_centroid_points(test_list,3)
-
-
-
-new_cluster_dictionary = unit.calculate_new_centroids(output[0],test_list)[0]
-
-#unit.generate_classified_RGB(new_cluster_dictionary)
-
-#unit.read_classified_RGB("classified.bin")
-
-print(unit.trained_cluster_dictionary)
-# test_column_vector = [
-#     [75,0],
-#     [0,0],
-#     [0,0],
-#     [25,0]
+# test_list = [
+#     (5,5,5,"Black"),
+#     (6,7,3,"Black"),
+#     (11,7,8,"Black"),
+#     (10,5,4,"Black"),
+#     (100,100,100,"Grey"),
+#     (110,90,120,"Grey")
 # ]
-
-
-# prob_dictionary = dict()
-#unit.prob_distribute(np.array(test_column_vector))
-
-# for i in range(1000):
-#     distributed_selected_value = unit.prob_distribute(np.array(test_column_vector))
-#     prob_dictionary[distributed_selected_value] = prob_dictionary.get(distributed_selected_value,0) + 1
-# print(prob_dictionary)
-
-
-#unit.K_Means()
 
 
