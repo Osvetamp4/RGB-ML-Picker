@@ -20,13 +20,14 @@ class RGB_Graph:
         self.RGBUnit_list = []
         self.RGB_color_clump = dict()
         self.centroid_list = []
+        self.trained_cluster_dictionary = dict()
 
         if csv == False:
             self.digest_unclassified_RGB(filepath)
         else:
             self.digest_csv(filepath)
         
-
+    #tested!
     def digest_unclassified_RGB(self,filepath):
         with open(filepath, 'rb') as binfile:
             while True:
@@ -40,6 +41,7 @@ class RGB_Graph:
     
     #tested!
     #generates the master header. At best should just be two bytes.
+    # such a list of bytes looks like: primer byte to describe number of the next bytes, bytes to describe the number of clusters.
     def generate_master_header(self,cluster_dictionary):
         
         number_of_clusters = len(cluster_dictionary.keys())
@@ -55,7 +57,8 @@ class RGB_Graph:
     
 
     #Returns an ordered collection of bytes that represent a singular cluster.
-    #not tested
+    #such a list of bytes looks like: primer byte, bytes to describe number of data points, r, g, b, 4 bytes per data point
+    #tested
     def generate_cluster_header(self,key,value):
         number_of_points = len(value)
         number_of_bytes = int(number_of_points/255) + 1
@@ -67,18 +70,54 @@ class RGB_Graph:
         centroid_bytes = bytes(list(key))
 
         byte_result = byte_result + centroid_bytes
+        
 
         for i in value:
             point_byte_list = list(i)
+            
             point_byte_list[3] = self.get_color_number(point_byte_list[3])
+            
 
             point_byte_list = bytes(point_byte_list)
             byte_result += point_byte_list
         return byte_result
     
+    #Generates the classified .bin file that stores the cluster information.
+    #tested!
     def generate_classified_RGB(self,cluster_dictionary):
         with open('classified.bin','wb') as binfile:
             binfile.write(self.generate_master_header(cluster_dictionary))
+            for k,v in cluster_dictionary.items():
+                binfile.write(self.generate_cluster_header(k,v))
+    
+    #takes a list of bytes as an int list and returns the aggregated number being represented by it.
+    #tested
+    def aggregate_byte_list(self,byte_list):
+        result = ""
+        for i in byte_list:
+            result += bin(i)[2:]
+        return int(result,2)
+
+    #reads a classified rgb .bin file and compiles it into a dictionary field for ease of use
+    #tested!
+    def read_classified_RGB(self,filepath):
+        with open(filepath,'rb') as binfile:
+            
+            primer_number = list(binfile.read(1))[0]
+
+            total_number_of_clusters = self.aggregate_byte_list(list(binfile.read(primer_number)))
+
+            for i in range(total_number_of_clusters):#we iterate as many times we we have clusters
+                cluster_primer_number = list(binfile.read(1))[0]
+                total_number_of_data_points = self.aggregate_byte_list(list(binfile.read(cluster_primer_number)))
+                centroid = tuple(list(binfile.read(3)))
+                self.trained_cluster_dictionary[centroid] = set()
+                for j in range(total_number_of_data_points):
+                    rgb_point = list(binfile.read(4))
+                    rgb_point[3] = self.get_color_label(rgb_point[3]).value[0]
+                    self.trained_cluster_dictionary[centroid].add(tuple(rgb_point))
+
+
             
                 
 
@@ -315,23 +354,24 @@ class RGB_Graph:
 unit = RGB_Graph("output.bin")
 
 test_list = [
-    (5,5,5,"color1"),
-    (6,7,3,"color1"),
-    (11,7,8,"color2"),
-    (10,5,4,"color2"),
-    (100,100,100,"color3"),
-    (110,90,120,"color3")
+    (5,5,5,"Black"),
+    (6,7,3,"Black"),
+    (11,7,8,"Black"),
+    (10,5,4,"Black"),
+    (100,100,100,"Grey"),
+    (110,90,120,"Grey")
 ]
-output = unit.init_centroid_points(test_list,3)
-
-print(output)
-
-new_cluster_dictionary = unit.calculate_new_centroids(output,test_list)[0]
-
-print(new_cluster_dictionary)
-print((list(unit.generate_master_header(new_cluster_dictionary))))
+#output = unit.init_centroid_points(test_list,3)
 
 
+
+#new_cluster_dictionary = unit.calculate_new_centroids(output,test_list)[0]
+
+#unit.generate_classified_RGB(new_cluster_dictionary)
+
+unit.read_classified_RGB("classified.bin")
+
+print(unit.trained_cluster_dictionary)
 # test_column_vector = [
 #     [75,0],
 #     [0,0],
