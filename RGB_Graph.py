@@ -16,7 +16,7 @@ class RGB_Graph:
     
 
     #we will use this to read 
-    def __init__(self,filepath,k,filetype,tolerance = 0.0001):
+    def __init__(self,filepath,filetype,k = 32,tolerance = 0.0001):
         self.tolerance = tolerance
         self.RGBUnit_list = []
         self.RGB_color_clump = dict()
@@ -385,9 +385,17 @@ class RGB_Graph:
 
         
 
-unit = RGB_Graph("colors.csv",32,"csv")
+unit = RGB_Graph("classified.bin","class")
 
 
+
+
+
+for k,v in unit.trained_cluster_dictionary.items():
+    print(k)
+    x = input("Continue:")
+    print(v)
+    y = input("Next cluster")
 
 
 
