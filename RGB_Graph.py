@@ -16,13 +16,15 @@ class RGB_Graph:
     
 
     #we will use this to read 
-    def __init__(self,filepath,filetype,k = 32,tolerance = 0.0001):
+    def __init__(self,filepath,filetype,k = 32,tolerance = 0.0001,kn = 4):
+        self.filepath = filepath
         self.tolerance = tolerance
         self.RGBUnit_list = []
         self.RGB_color_clump = dict()
         self.centroid_list = []
         self.trained_cluster_dictionary = dict()
         self.k=k
+        self.kn = kn
 
         if filetype == "csv":self.digest_csv(filepath)
         elif filetype == "unclass": self.digest_unclassified_RGB(filepath)
@@ -47,8 +49,16 @@ class RGB_Graph:
     def printRGBUnit_list(self):
         for i in self.RGBUnit_list:
             print(i.r,i.g,i.b,i.label.value[0])
+    
+    #not tested
+    def number_miniheader(self,number):
+        primer_byte = bytes([int(number/255) + 1])
 
-    #tested!
+        byte_result = primer_byte + number.to_bytes(int(number/255) + 1,byteorder='big')
+
+        return byte_result
+
+    #not tested!
     #generates the master header. At best should just be two bytes.
     # such a list of bytes looks like: primer byte to describe number of the next bytes, bytes to describe the number of clusters.
     def generate_master_header(self,cluster_dictionary):
@@ -60,14 +70,35 @@ class RGB_Graph:
         
 
 
-        byte_result = byte_header_1 +  number_of_clusters.to_bytes(number_of_bytes,byteorder='big')
+        master_header = byte_header_1 +  number_of_clusters.to_bytes(number_of_bytes,byteorder='big')
 
-        return byte_result
+        #generate the index table
+
+        raw_cluster_data = []
+        cluster_index = []
+        offset_from_start_of_raw_cluster = 0
+        offset_from_true_start = 0
+
+        for k,v in cluster_dictionary.items():
+            cluster_header = self.generate_cluster_header(k,v)
+            raw_cluster_data.append(cluster_header)
+            offset_from_start_of_raw_cluster += len(cluster_header)
+        
+        
+        for cluster_byte in reversed(raw_cluster_data):
+            offset_from_start_of_raw_cluster -= len(cluster_byte)
+            cluster_index_chunk = cluster_byte[:3] + self.number_miniheader(offset_from_start_of_raw_cluster + offset_from_true_start)
+            offset_from_true_start += len(cluster_index_chunk)
+            cluster_index.insert(0,cluster_index_chunk)
+        
+        
+
+        return raw_cluster_data,cluster_index
     
 
     #Returns an ordered collection of bytes that represent a singular cluster.
     #such a list of bytes looks like: primer byte, bytes to describe number of data points, r, g, b, 4 bytes per data point
-    #tested
+    #not tested
     def generate_cluster_header(self,key,value):
         number_of_points = len(value)
         number_of_bytes = int(number_of_points/255) + 1
@@ -78,7 +109,7 @@ class RGB_Graph:
 
         centroid_bytes = bytes(list(key))
 
-        byte_result = byte_result + centroid_bytes
+        byte_result = centroid_bytes + byte_result
         
 
         for i in value:
@@ -92,7 +123,7 @@ class RGB_Graph:
         return byte_result
     
     #Generates the classified .bin file that stores the cluster information.
-    #tested!
+    #not tested!
     def generate_classified_RGB(self,cluster_dictionary):
         with open('classified.bin','wb') as binfile:
             binfile.write(self.generate_master_header(cluster_dictionary))
@@ -110,7 +141,7 @@ class RGB_Graph:
     #reads a classified rgb .bin file and compiles it into a dictionary field for ease of use
     #dictionary field is self.trained_cluster_dictionary
     #We will then connect this with K-nearest neighbors
-    #tested!
+    #not tested
     def digest_classified_RGB(self,filepath):
         with open(filepath,'rb') as binfile:
             
@@ -157,7 +188,7 @@ class RGB_Graph:
             for row in csv_reader:
                 data.append(row)
         
-        with open('output.bin', 'wb') as binfile:
+        with open('output1.bin', 'wb') as binfile:
             #write the header here NOT FUNISHED YET
 
             for row in data:
@@ -377,26 +408,32 @@ class RGB_Graph:
             if abs(current_inertia - new_inertia) <= self.tolerance:break
 
             current_inertia = new_inertia
-        
-        
-        
-        
-        #add a loop here
+    
+    #data_point is a tuple of (r,g,b)
+    def K_Nearest(self,data_point):
+        if len(list(self.trained_cluster_dictionary)) == 0:
+            self.digest_classified_RGB(self.filepath)
 
         
 
-unit = RGB_Graph("classified.bin","class")
+unit = RGB_Graph("testing colors.csv","donthing")
 
+test_cluster_dictionary = {
+    (1,2,3):{(5,5,5,"Black"),(6,7,3,"Black")},
+    (4,3,2):{(1,2,1,"White"),(9,6,3,"White"),(93,4,34,"Grey")},
+    (65,23,12):{(1,2,2,"Yellow"),(65,45,23,"Grey"),(34,123,12,"Red"),(90,78,67,"Blue"),(123,12,12,"Red")}
+}
 
-
-
-
-for k,v in unit.trained_cluster_dictionary.items():
-    print(k)
-    x = input("Continue:")
-    print(v)
-    y = input("Next cluster")
-
+stored = unit.generate_master_header(test_cluster_dictionary)
+for i in stored[0]:
+    print(len(i),end=" ")
+print()
+for i in stored[0]:
+    print(list(i),end=" ")
+print()
+for i in stored[1]:
+    print(list(i),end=" ")
+print()
 
 
 # test_list = [
