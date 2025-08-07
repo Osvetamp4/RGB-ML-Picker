@@ -124,7 +124,7 @@ class RGB_Graph:
         
         
 
-        return master_header,cluster_index,raw_cluster_data,byte_result
+        return byte_result
     
 
     #Returns an ordered collection of bytes that represent a singular cluster.
@@ -158,8 +158,6 @@ class RGB_Graph:
     def generate_classified_RGB(self,cluster_dictionary):
         with open('classified.bin','wb') as binfile:
             binfile.write(self.generate_master_header(cluster_dictionary))
-            for k,v in cluster_dictionary.items():
-                binfile.write(self.generate_cluster_header(k,v))
     
     #takes a list of bytes represented as an integer list and returns the aggregated number being represented by it.
     #tested
@@ -219,7 +217,7 @@ class RGB_Graph:
             for row in csv_reader:
                 data.append(row)
         
-        with open('output1.bin', 'wb') as binfile:
+        with open('output.bin', 'wb') as binfile:
             #write the header here NOT FUNISHED YET
 
             for row in data:
@@ -447,7 +445,9 @@ class RGB_Graph:
 
         
 
-unit = RGB_Graph("testing colors.csv","donthing")
+unit = RGB_Graph("output.bin","unclass",2)
+
+print(unit.RGB_color_clump)
 
 test_cluster_dictionary = {
     (1,2,3):{(5,5,5,"Black"),(6,7,3,"Black")},
@@ -455,17 +455,7 @@ test_cluster_dictionary = {
     (65,23,12):{(1,2,2,"Yellow"),(65,45,23,"Grey"),(34,123,12,"Red"),(90,78,67,"Blue"),(123,12,12,"Red")}
 }
 
-master_header,cluster_index_data,raw_cluster_data,byte_stream = unit.generate_master_header(test_cluster_dictionary)
-print(list(master_header))
-for i in cluster_index_data:
-    print(list(i),end=" ")
-print()
-for i in raw_cluster_data:
-    print(list(i),end=" ")
-print()
 
-print()
-print(list(byte_stream))
 
 #file_byte_stream = master_header + cluster_index_data + raw_cluster_data
 
