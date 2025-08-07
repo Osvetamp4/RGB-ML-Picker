@@ -50,15 +50,21 @@ class RGB_Graph:
         for i in self.RGBUnit_list:
             print(i.r,i.g,i.b,i.label.value[0])
     
-    #not tested
+    #tested!
     def number_miniheader(self,number):
         primer_byte = bytes([int(number/255) + 1])
 
         byte_result = primer_byte + number.to_bytes(int(number/255) + 1,byteorder='big')
 
         return byte_result
+    
+    def miniheader_decrypt(self,number_byte):
+        number_description = list(number_byte)
 
-    #not tested!
+        primer_number = number_description[0]
+        self.aggregate_byte_list(number_description[1:])
+
+    #tested!(again)
     #generates the master header. At best should just be two bytes.
     # such a list of bytes looks like: primer byte to describe number of the next bytes, bytes to describe the number of clusters.
     def generate_master_header(self,cluster_dictionary):
@@ -77,7 +83,8 @@ class RGB_Graph:
         raw_cluster_data = []
         cluster_index = []
         offset_from_start_of_raw_cluster = 0
-        offset_from_true_start = 0
+        offset_from_current_cluster_index = 0
+        
 
         for k,v in cluster_dictionary.items():
             cluster_header = self.generate_cluster_header(k,v)
@@ -87,18 +94,42 @@ class RGB_Graph:
         
         for cluster_byte in reversed(raw_cluster_data):
             offset_from_start_of_raw_cluster -= len(cluster_byte)
-            cluster_index_chunk = cluster_byte[:3] + self.number_miniheader(offset_from_start_of_raw_cluster + offset_from_true_start)
-            offset_from_true_start += len(cluster_index_chunk)
+            cluster_index_chunk = cluster_byte[:3] + self.number_miniheader(offset_from_start_of_raw_cluster + offset_from_current_cluster_index)
+            offset_from_current_cluster_index += len(cluster_index_chunk)
             cluster_index.insert(0,cluster_index_chunk)
+
+        offset_from_true_start = len(master_header)
+        
+
+        for cluster_index_number in range(len(cluster_index)):
+            offset_from_true_start += len(cluster_index[cluster_index_number])
+            
+            centroid_point = cluster_index[cluster_index_number][:3]
+
+            
+            
+            index_number = self.aggregate_byte_list(list(cluster_index[cluster_index_number][4:]))
+
+            new_index_number = index_number + offset_from_true_start
+            #print(new_index_number)
+
+            #we replace the current centroid index byte with the updated one to accuractly reflect as an offset from the start of the .bin file.
+            cluster_index[cluster_index_number] = centroid_point + self.number_miniheader(new_index_number)
+        
+        byte_result = master_header
+        cluster_index += raw_cluster_data
+
+        for i in cluster_index:
+            byte_result+=i
         
         
 
-        return raw_cluster_data,cluster_index
+        return master_header,cluster_index,raw_cluster_data,byte_result
     
 
     #Returns an ordered collection of bytes that represent a singular cluster.
     #such a list of bytes looks like: primer byte, bytes to describe number of data points, r, g, b, 4 bytes per data point
-    #not tested
+    #tested! (again)
     def generate_cluster_header(self,key,value):
         number_of_points = len(value)
         number_of_bytes = int(number_of_points/255) + 1
@@ -130,7 +161,7 @@ class RGB_Graph:
             for k,v in cluster_dictionary.items():
                 binfile.write(self.generate_cluster_header(k,v))
     
-    #takes a list of bytes as an int list and returns the aggregated number being represented by it.
+    #takes a list of bytes represented as an integer list and returns the aggregated number being represented by it.
     #tested
     def aggregate_byte_list(self,byte_list):
         result = ""
@@ -424,16 +455,22 @@ test_cluster_dictionary = {
     (65,23,12):{(1,2,2,"Yellow"),(65,45,23,"Grey"),(34,123,12,"Red"),(90,78,67,"Blue"),(123,12,12,"Red")}
 }
 
-stored = unit.generate_master_header(test_cluster_dictionary)
-for i in stored[0]:
-    print(len(i),end=" ")
-print()
-for i in stored[0]:
+master_header,cluster_index_data,raw_cluster_data,byte_stream = unit.generate_master_header(test_cluster_dictionary)
+print(list(master_header))
+for i in cluster_index_data:
     print(list(i),end=" ")
 print()
-for i in stored[1]:
+for i in raw_cluster_data:
     print(list(i),end=" ")
 print()
+
+print()
+print(list(byte_stream))
+
+#file_byte_stream = master_header + cluster_index_data + raw_cluster_data
+
+#print(file_byte_stream)
+
 
 
 # test_list = [
