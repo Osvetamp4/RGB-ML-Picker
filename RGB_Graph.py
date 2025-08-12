@@ -65,8 +65,9 @@ class RGB_Graph:
         self.aggregate_byte_list(number_description[1:])
 
     #tested!(again)
-    #generates the master header. At best should just be two bytes.
+    #generates the master header.
     # such a list of bytes looks like: primer byte to describe number of the next bytes, bytes to describe the number of clusters.
+    # also generates an index of clusters so you can handpick them if you want to
     def generate_master_header(self,cluster_dictionary):
         
         number_of_clusters = len(cluster_dictionary.keys())
@@ -167,26 +168,42 @@ class RGB_Graph:
             result += bin(i)[2:]
         return int(result,2)
 
-    #reads a classified rgb .bin file and compiles it into a dictionary field for ease of use
+    #reads a classified rgb .bin file and compiles all of it into a dictionary field for ease of use
     #dictionary field is self.trained_cluster_dictionary
     #We will then connect this with K-nearest neighbors
-    #not tested
+    #Only do this if we have enough memory to store dictionary into RAM.
+    #tested!
     def digest_classified_RGB(self,filepath):
         with open(filepath,'rb') as binfile:
             
             primer_number = list(binfile.read(1))[0]
 
             total_number_of_clusters = self.aggregate_byte_list(list(binfile.read(primer_number)))
+            
+
+            #this for loop skips over the index clusters
+            for i in range(total_number_of_clusters):
+                index_byte = binfile.read(3)
+                index_primer_number = list(binfile.read(1))[0]
+                true_start_cluster_index = self.aggregate_byte_list(list(binfile.read(index_primer_number)))
+                
 
             for i in range(total_number_of_clusters):#we iterate as many times we we have clusters
+                centroid = tuple(list(binfile.read(3)))
                 cluster_primer_number = list(binfile.read(1))[0]
                 total_number_of_data_points = self.aggregate_byte_list(list(binfile.read(cluster_primer_number)))
-                centroid = tuple(list(binfile.read(3)))
+                
+                
+                
                 self.trained_cluster_dictionary[centroid] = set()
                 for j in range(total_number_of_data_points):
                     rgb_point = list(binfile.read(4))
                     rgb_point[3] = self.get_color_label(rgb_point[3]).value[0]
                     self.trained_cluster_dictionary[centroid].add(tuple(rgb_point))
+
+
+    def select_memory_digest_classified_rgb(self,filepath):
+        pass
 
 
             
@@ -445,9 +462,9 @@ class RGB_Graph:
 
         
 
-unit = RGB_Graph("output.bin","unclass",2)
+unit = RGB_Graph("classified.bin","class",2)
 
-print(unit.RGB_color_clump)
+print(unit.trained_cluster_dictionary)
 
 test_cluster_dictionary = {
     (1,2,3):{(5,5,5,"Black"),(6,7,3,"Black")},
