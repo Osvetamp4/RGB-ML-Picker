@@ -16,7 +16,7 @@ class RGB_Graph:
     
 
     #we will use this to read 
-    def __init__(self,filepath,filetype,k = 32,tolerance = 0.0001,kn = 4):
+    def __init__(self,filepath,filetype,k = 32,tolerance = 0.0001,kn = 7):
         self.filepath = filepath
         self.tolerance = tolerance
         self.RGBUnit_list = []
@@ -202,8 +202,52 @@ class RGB_Graph:
                     self.trained_cluster_dictionary[centroid].add(tuple(rgb_point))
 
 
-    def select_memory_digest_classified_rgb(self,filepath):
-        pass
+    def select_memory_digest_classified_rgb(self,filepath,datapoint):
+        with open(filepath,'rb') as binfile:
+            primer_number = list(binfile.read(1))[0]
+
+            total_number_of_clusters = self.aggregate_byte_list(list(binfile.read(primer_number)))
+
+            centroid_package = []
+
+            #this for loop skips over the index clusters
+            for i in range(total_number_of_clusters):
+                index_centroid = list(binfile.read(3))
+                index_primer_number = list(binfile.read(1))[0]
+                true_start_cluster_index = self.aggregate_byte_list(list(binfile.read(index_primer_number)))
+
+                index_centroid.append(true_start_cluster_index)
+
+                centroid_package.append(index_centroid)
+            
+            isolated_centroid_package = np.array([row[:-1] for row in centroid_package])
+
+            true_start_index = np.array([row[3:] for row in centroid_package])
+            
+
+            distance_matrix = cdist(isolated_centroid_package,np.array([datapoint]),metric='sqeuclidean')
+            distance_matrix = 1/distance_matrix
+
+            distance_matrix = np.hstack((distance_matrix,true_start_index))
+            print(distance_matrix)
+            print("---")
+
+            indices_sort_to = np.argsort(distance_matrix[:,0])
+
+            distance_matrix = distance_matrix[indices_sort_to]
+
+
+            return distance_matrix
+
+
+        
+        
+            
+
+            
+
+            
+
 
 
             
@@ -462,9 +506,12 @@ class RGB_Graph:
 
         
 
-unit = RGB_Graph("classified.bin","class",2)
+unit = RGB_Graph("classified.bin","class",3)
+#print(unit.select_memory_digest_classified_rgb("classified.bin",(10,11,12)))
+#print(unit.RGB_color_clump)
+#print(unit.trained_cluster_dictionary)
 
-print(unit.trained_cluster_dictionary)
+print(unit.select_memory_digest_classified_rgb("classified.bin",(10,11,12)))
 
 test_cluster_dictionary = {
     (1,2,3):{(5,5,5,"Black"),(6,7,3,"Black")},
