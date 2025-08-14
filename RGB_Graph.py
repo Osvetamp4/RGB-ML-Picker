@@ -16,7 +16,7 @@ class RGB_Graph:
     
 
     #we will use this to read 
-    def __init__(self,filepath,filetype,k = 32,tolerance = 0.0001,kn = 7):
+    def __init__(self,filepath,filetype,k = 32,tolerance = 0.0001,kn = 7,kc = 3):
         self.filepath = filepath
         self.tolerance = tolerance
         self.RGBUnit_list = []
@@ -25,6 +25,7 @@ class RGB_Graph:
         self.trained_cluster_dictionary = dict()
         self.k=k
         self.kn = kn
+        self.kc = kc
 
         if filetype == "csv":self.digest_csv(filepath)
         elif filetype == "unclass": self.digest_unclassified_RGB(filepath)
@@ -224,20 +225,76 @@ class RGB_Graph:
 
             true_start_index = np.array([row[3:] for row in centroid_package])
             
+            
 
             distance_matrix = cdist(isolated_centroid_package,np.array([datapoint]),metric='sqeuclidean')
-            distance_matrix = 1/distance_matrix
+            #distance_matrix = 1/distance_matrix
 
             distance_matrix = np.hstack((distance_matrix,true_start_index))
-            print(distance_matrix)
-            print("---")
+            
 
             indices_sort_to = np.argsort(distance_matrix[:,0])
 
-            distance_matrix = distance_matrix[indices_sort_to]
+            
+
+            #distance_matrix[:,1] = distance_matrix[:,1].astype(int)
+            sumnation_np_array = []
+            
+
+            for i in distance_matrix[:self.kc]:
+
+                binfile.seek(int(i[1]))
+                
+                centroid_bytes = binfile.read(3)
+                cluster_primer_number = list(binfile.read(1))[0]
+                number_of_data_points = self.aggregate_byte_list(list(binfile.read(cluster_primer_number)))
+                
+
+                sumnation_of_data_points = list(binfile.read(number_of_data_points * 4))
+                #print(list(centroid_bytes),"|",cluster_primer_number,number_of_data_points,"|",list(sumnation_of_data_points))
+
+                
+                for rgb_point_index in range(0,len(sumnation_of_data_points),4):
+                    sumnation_np_array.append(sumnation_of_data_points[rgb_point_index:rgb_point_index+4])
+                
+
+            sumnation_np_array = np.array(sumnation_np_array)
+            kn_distance_matrix = cdist(sumnation_np_array[:, :-1],np.array([datapoint]),metric='sqeuclidean')#[:,0]
 
 
-            return distance_matrix
+            kn_distance_matrix = 1/kn_distance_matrix
+            
+            
+
+            kn_distance_matrix = np.hstack((kn_distance_matrix,sumnation_np_array[:,3].reshape(9,1)))
+            
+
+            
+
+            
+                
+
+            #
+
+            sorted_index = np.argsort(kn_distance_matrix[:,0])
+            kn_distance_matrix = kn_distance_matrix[sorted_index][::-1]
+
+            sumnation_dictionary = dict()
+            current_max_value = 0
+            current_max_number = 0
+            for row in kn_distance_matrix:
+                sumnation_dictionary[int(row[1])] = sumnation_dictionary.get(int(row[1]),0) + row[0]
+                if sumnation_dictionary[int(row[1])] > current_max_value:
+                    current_max_value = sumnation_dictionary[int(row[1])]
+                    current_max_number = int(row[1])
+            
+            
+
+            
+                
+
+
+            return self.get_color_label(current_max_number).value[0]
 
 
         
