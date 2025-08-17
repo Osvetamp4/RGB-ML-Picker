@@ -1,5 +1,6 @@
 from RGB import RGBUnit
 import csv
+import math
 
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -53,9 +54,9 @@ class RGB_Graph:
     
     #tested!
     def number_miniheader(self,number):
-        primer_byte = bytes([int(number/255) + 1])
+        primer_byte = bytes([math.ceil(math.log2(number + 1)/8)])
 
-        byte_result = primer_byte + number.to_bytes(int(number/255) + 1,byteorder='big')
+        byte_result = primer_byte + number.to_bytes(int(math.ceil(math.log2(number + 1)/8)),byteorder='big')
 
         return byte_result
     
@@ -80,7 +81,7 @@ class RGB_Graph:
 
         master_header = byte_header_1 +  number_of_clusters.to_bytes(number_of_bytes,byteorder='big')
 
-        #generate the index table
+        #generate the index table starting from HERE ----
 
         raw_cluster_data = []
         cluster_index = []
@@ -89,14 +90,22 @@ class RGB_Graph:
         
 
         for k,v in cluster_dictionary.items():
+            # if len(v) == 0:
+            #     print("successful block")
+            #     continue
             cluster_header = self.generate_cluster_header(k,v)
             raw_cluster_data.append(cluster_header)
             offset_from_start_of_raw_cluster += len(cluster_header)
+
+            #I might have both things reversed
         
         
         for cluster_byte in reversed(raw_cluster_data):
             offset_from_start_of_raw_cluster -= len(cluster_byte)
-            cluster_index_chunk = cluster_byte[:3] + self.number_miniheader(offset_from_start_of_raw_cluster + offset_from_current_cluster_index)
+            temp = self.number_miniheader(offset_from_start_of_raw_cluster + offset_from_current_cluster_index)
+            cluster_index_chunk = cluster_byte[:3] + temp
+            print("input",offset_from_start_of_raw_cluster + offset_from_current_cluster_index)
+            print("miniheader",list(temp))
             offset_from_current_cluster_index += len(cluster_index_chunk)
             cluster_index.insert(0,cluster_index_chunk)
 
@@ -119,7 +128,14 @@ class RGB_Graph:
             cluster_index[cluster_index_number] = centroid_point + self.number_miniheader(new_index_number)
         
         byte_result = master_header
+        print("master_header",list(master_header))
+
+        # print("cluster_index")
+        # for i in list(cluster_index):
+        #     print(list(i),end=" ")
+        # print()
         cluster_index += raw_cluster_data
+        
 
         for i in cluster_index:
             byte_result+=i
@@ -133,12 +149,14 @@ class RGB_Graph:
     #such a list of bytes looks like: primer byte, bytes to describe number of data points, r, g, b, 4 bytes per data point
     #tested! (again)
     def generate_cluster_header(self,key,value):
-        number_of_points = len(value)
-        number_of_bytes = int(number_of_points/255) + 1
+        if len(value) == 0:print("Cluster with no points")
+        number_of_points = len(value) #0
+        number_of_bytes = int(math.ceil(math.log2(number_of_points + 1)/8)) #1
 
-        byte_header_1 = bytes([number_of_bytes])
+        byte_header_1 = bytes([number_of_bytes]) #00000001
 
-        byte_result = byte_header_1 + number_of_points.to_bytes(number_of_bytes,byteorder='big')
+        byte_result = byte_header_1 + number_of_points.to_bytes(number_of_bytes,byteorder='big') # 00000001, 00000000
+        #if number_of_points == 0: print(list(number_of_points.to_bytes(number_of_bytes,byteorder='big')))
 
         centroid_bytes = bytes(list(key))
 
@@ -180,6 +198,7 @@ class RGB_Graph:
             primer_number = list(binfile.read(1))[0]
 
             total_number_of_clusters = self.aggregate_byte_list(list(binfile.read(primer_number)))
+            print()
             
 
             #this for loop skips over the index clusters
@@ -206,17 +225,26 @@ class RGB_Graph:
     def select_memory_digest_classified_rgb(self,filepath,datapoint):
         with open(filepath,'rb') as binfile:
             primer_number = list(binfile.read(1))[0]
+            print("master primer_number",primer_number)
 
             total_number_of_clusters = self.aggregate_byte_list(list(binfile.read(primer_number)))
+            print("total number of clusters",total_number_of_clusters)
 
             centroid_package = []
 
             #this for loop skips over the index clusters
             for i in range(total_number_of_clusters):
                 index_centroid = list(binfile.read(3))
+                
                 index_primer_number = list(binfile.read(1))[0]
-                true_start_cluster_index = self.aggregate_byte_list(list(binfile.read(index_primer_number)))
+                temp = list(binfile.read(index_primer_number))
+                true_start_cluster_index = self.aggregate_byte_list(temp)
 
+
+                # print("index_centroid:",index_centroid,"|","index primer number:",index_primer_number,"true start cluster index:",true_start_cluster_index)
+                # print("Actual list:",temp)
+
+                print(index_centroid,"|",index_primer_number,"|",temp)
                 index_centroid.append(true_start_cluster_index)
 
                 centroid_package.append(index_centroid)
@@ -247,7 +275,11 @@ class RGB_Graph:
                 
                 centroid_bytes = binfile.read(3)
                 cluster_primer_number = list(binfile.read(1))[0]
-                number_of_data_points = self.aggregate_byte_list(list(binfile.read(cluster_primer_number)))
+                
+                stored = list(binfile.read(cluster_primer_number))
+                
+                number_of_data_points = self.aggregate_byte_list(stored)
+                
                 
 
                 sumnation_of_data_points = list(binfile.read(number_of_data_points * 4))
@@ -548,7 +580,7 @@ class RGB_Graph:
         new_inertia = 0 #diff between current and new will always be more than self.tolerance
 
         while True:
-            print(current_inertia,"-",new_inertia,"=",abs(current_inertia - new_inertia))
+            
             #new_inertia is generated a new number
             self.RGB_color_clump,new_inertia = self.calculate_new_centroids(self.RGB_color_clump,data_point_list)
 
@@ -562,13 +594,30 @@ class RGB_Graph:
             self.digest_classified_RGB(self.filepath)
 
         
+#unit = RGB_Graph("colors.csv","csv")
+#unit = RGB_Graph("output.bin","unclass")
 
-unit = RGB_Graph("classified.bin","class",3)
+while True:
+    x = input("Enter: ")
+    if x == "csv":
+        unit = RGB_Graph("colors.csv","csv")
+        print("done")
+    elif x == "unclass":
+        unit = RGB_Graph("output.bin","unclass")
+        print("done")
+    elif x == "class":
+        unit = RGB_Graph("classified.bin","class")
+        for k,v in unit.trained_cluster_dictionary.items():
+            print(k,len(v))
+        print()
+        print(unit.select_memory_digest_classified_rgb("classified.bin",(12,40,3)))
+    else:break
+
 #print(unit.select_memory_digest_classified_rgb("classified.bin",(10,11,12)))
 #print(unit.RGB_color_clump)
 #print(unit.trained_cluster_dictionary)
 
-print(unit.select_memory_digest_classified_rgb("classified.bin",(10,11,12)))
+
 
 test_cluster_dictionary = {
     (1,2,3):{(5,5,5,"Black"),(6,7,3,"Black")},
