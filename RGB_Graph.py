@@ -85,29 +85,30 @@ class RGB_Graph:
 
         raw_cluster_data = []
         cluster_index = []
-        offset_from_start_of_raw_cluster = 0
-        offset_from_current_cluster_index = 0
+        offset_from_start_of_raw_cluster_data = 0 #the length from start of raw_cluster_data to the end. Starts at full length and reduces by length of each raw_cluster backwards.
+        offset_from_current_cluster_index = 0 #length from end of cluster_index to the start. Starts at 0 and increments by length of each cluster index backwards.
         
 
+        #This for loop creates the byte stream of clusters from cluster_dictionary
         for k,v in cluster_dictionary.items():
             # if len(v) == 0:
             #     print("successful block")
             #     continue
             cluster_header = self.generate_cluster_header(k,v)
             raw_cluster_data.append(cluster_header)
-            offset_from_start_of_raw_cluster += len(cluster_header)
+            offset_from_start_of_raw_cluster_data += len(cluster_header)
 
-            #I might have both things reversed
+            
         
         
         for cluster_byte in reversed(raw_cluster_data):
-            offset_from_start_of_raw_cluster -= len(cluster_byte)
-            temp = self.number_miniheader(offset_from_start_of_raw_cluster + offset_from_current_cluster_index)
+            offset_from_start_of_raw_cluster_data -= len(cluster_byte) #Will ensure the correct offset from start of raw_cluster_data to current cluster_byte
+            temp = self.number_miniheader(offset_from_start_of_raw_cluster_data + offset_from_current_cluster_index) #start_of_raw_Cluster_Data decreases while from_current_cluster_index increases, combined they
             cluster_index_chunk = cluster_byte[:3] + temp
-            print("input",offset_from_start_of_raw_cluster + offset_from_current_cluster_index)
-            print("miniheader",list(temp))
+            
             offset_from_current_cluster_index += len(cluster_index_chunk)
             cluster_index.insert(0,cluster_index_chunk)
+
 
         offset_from_true_start = len(master_header)
         
@@ -128,7 +129,7 @@ class RGB_Graph:
             cluster_index[cluster_index_number] = centroid_point + self.number_miniheader(new_index_number)
         
         byte_result = master_header
-        print("master_header",list(master_header))
+        
 
         # print("cluster_index")
         # for i in list(cluster_index):
@@ -232,7 +233,7 @@ class RGB_Graph:
 
             centroid_package = []
 
-            #this for loop skips over the index clusters
+            #this for loop goes over the cluster index
             for i in range(total_number_of_clusters):
                 index_centroid = list(binfile.read(3))
                 
@@ -244,36 +245,58 @@ class RGB_Graph:
                 # print("index_centroid:",index_centroid,"|","index primer number:",index_primer_number,"true start cluster index:",true_start_cluster_index)
                 # print("Actual list:",temp)
 
-                print(index_centroid,"|",index_primer_number,"|",temp)
+                print(index_centroid,"|",index_primer_number,"|",true_start_cluster_index)
                 index_centroid.append(true_start_cluster_index)
 
                 centroid_package.append(index_centroid)
             
-            isolated_centroid_package = np.array([row[:-1] for row in centroid_package])
+            print("---")
+            for i in centroid_package:
+                binfile.seek(i[3])
+                temporary = list(binfile.read(6))
+                
 
-            true_start_index = np.array([row[3:] for row in centroid_package])
+                print(i[3],temporary)
+            
+            
+            
+            isolated_centroid_package = np.array([row[:-1] for row in centroid_package])#This only contains the centroid coordinates
+
+            true_start_index = np.array([row[3:] for row in centroid_package]) #This only contains the distance from the point
+            
             
             
 
             distance_matrix = cdist(isolated_centroid_package,np.array([datapoint]),metric='sqeuclidean')
+            
+            
             #distance_matrix = 1/distance_matrix
 
             distance_matrix = np.hstack((distance_matrix,true_start_index))
             
+            
 
             indices_sort_to = np.argsort(distance_matrix[:,0])
+
+            distance_matrix = distance_matrix[indices_sort_to]
+            
 
             
 
             #distance_matrix[:,1] = distance_matrix[:,1].astype(int)
             sumnation_np_array = []
             
+            
 
             for i in distance_matrix[:self.kc]:
 
+                
                 binfile.seek(int(i[1]))
                 
+                
+                
                 centroid_bytes = binfile.read(3)
+                
                 cluster_primer_number = list(binfile.read(1))[0]
                 
                 stored = list(binfile.read(cluster_primer_number))
@@ -281,13 +304,15 @@ class RGB_Graph:
                 number_of_data_points = self.aggregate_byte_list(stored)
                 
                 
-
+                
+                
                 sumnation_of_data_points = list(binfile.read(number_of_data_points * 4))
                 #print(list(centroid_bytes),"|",cluster_primer_number,number_of_data_points,"|",list(sumnation_of_data_points))
 
                 
                 for rgb_point_index in range(0,len(sumnation_of_data_points),4):
                     sumnation_np_array.append(sumnation_of_data_points[rgb_point_index:rgb_point_index+4])
+
                 
 
             sumnation_np_array = np.array(sumnation_np_array)
@@ -610,7 +635,7 @@ while True:
         for k,v in unit.trained_cluster_dictionary.items():
             print(k,len(v))
         print()
-        print(unit.select_memory_digest_classified_rgb("classified.bin",(12,40,3)))
+        #print(unit.select_memory_digest_classified_rgb("classified.bin",(12,40,3)))
     else:break
 
 #print(unit.select_memory_digest_classified_rgb("classified.bin",(10,11,12)))
