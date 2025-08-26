@@ -85,9 +85,10 @@ class RGB_Graph:
 
         raw_cluster_data = []
         cluster_index = []
-        offset_from_start_of_raw_cluster_data = 0 #the length from start of raw_cluster_data to the end. Starts at full length and reduces by length of each raw_cluster backwards.
-        offset_from_current_cluster_index = 0 #length from end of cluster_index to the start. Starts at 0 and increments by length of each cluster index backwards.
-        
+        length_of_raw_cluster_data = 0 #the length from start of raw_cluster_data to the end. Starts at full length and reduces by length of each raw_cluster backwards.
+        distance_from_end_of_cluster_index = 0
+        index_dictionary = dict()
+
 
         #This for loop creates the byte stream of clusters from cluster_dictionary
         for k,v in cluster_dictionary.items():
@@ -96,37 +97,30 @@ class RGB_Graph:
             #     continue
             cluster_header = self.generate_cluster_header(k,v)
             raw_cluster_data.append(cluster_header)
-            offset_from_start_of_raw_cluster_data += len(cluster_header)
+            length_of_raw_cluster_data += len(cluster_header)
+        print("before",length_of_raw_cluster_data)
+        
+        for i in raw_cluster_data[::-1]:
+            encoded_centroid_bytes = tuple(list(i[:3]))
+            length_of_raw_cluster_data -= len(i)
+
+            distance_from_start_of_raw_cluster_data = length_of_raw_cluster_data
+
+            index_dictionary[encoded_centroid_bytes] = index_dictionary.get(encoded_centroid_bytes,distance_from_start_of_raw_cluster_data)
+        
+        for i in raw_cluster_data[::-1]:
+            encoded_centroid_bytes = tuple(list(i[:3]))
+
+            index_dictionary[encoded_centroid_bytes] = index_dictionary[encoded_centroid_bytes] + distance_from_end_of_cluster_index
+
+            distance_from_end_of_cluster_index += len(i)
+        
+
 
             
         
         
-        for cluster_byte in reversed(raw_cluster_data):
-            offset_from_start_of_raw_cluster_data -= len(cluster_byte) #Will ensure the correct offset from start of raw_cluster_data to current cluster_byte
-            temp = self.number_miniheader(offset_from_start_of_raw_cluster_data + offset_from_current_cluster_index) #start_of_raw_Cluster_Data decreases while from_current_cluster_index increases, combined they
-            cluster_index_chunk = cluster_byte[:3] + temp
-            
-            offset_from_current_cluster_index += len(cluster_index_chunk)
-            cluster_index.insert(0,cluster_index_chunk)
-
-
-        offset_from_true_start = len(master_header)
         
-
-        for cluster_index_number in range(len(cluster_index)):
-            offset_from_true_start += len(cluster_index[cluster_index_number])
-            
-            centroid_point = cluster_index[cluster_index_number][:3]
-
-            
-            
-            index_number = self.aggregate_byte_list(list(cluster_index[cluster_index_number][4:]))
-
-            new_index_number = index_number + offset_from_true_start
-            #print(new_index_number)
-
-            #we replace the current centroid index byte with the updated one to accuractly reflect as an offset from the start of the .bin file.
-            cluster_index[cluster_index_number] = centroid_point + self.number_miniheader(new_index_number)
         
         byte_result = master_header
         
@@ -140,9 +134,18 @@ class RGB_Graph:
 
         for i in cluster_index:
             byte_result+=i
-        
-        
+        print("cluster dictionary")
 
+        for k in cluster_dictionary.keys():
+            print(k)
+        
+        print("index dictionary")
+
+        for k,v in index_dictionary.items():
+            print(k,v)
+        print("after",length_of_raw_cluster_data)
+
+        
         return byte_result
     
 
