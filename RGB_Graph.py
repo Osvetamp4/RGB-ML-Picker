@@ -98,8 +98,9 @@ class RGB_Graph:
             cluster_header = self.generate_cluster_header(k,v)
             raw_cluster_data.append(cluster_header)
             length_of_raw_cluster_data += len(cluster_header)
-        print("before",length_of_raw_cluster_data)
         
+        
+        #For every centroid, store distance from start of raw_cluster_data to that centroid
         for i in raw_cluster_data[::-1]:
             encoded_centroid_bytes = tuple(list(i[:3]))
             length_of_raw_cluster_data -= len(i)
@@ -108,12 +109,56 @@ class RGB_Graph:
 
             index_dictionary[encoded_centroid_bytes] = index_dictionary.get(encoded_centroid_bytes,distance_from_start_of_raw_cluster_data)
         
+        #testing for loop
+        connected_raw_cluster_data = "".encode('utf-8')
+
+        for i in raw_cluster_data:
+            connected_raw_cluster_data+=i
+        
+        
+        for i in raw_cluster_data:
+            print(list(i)[:5],index_dictionary[tuple(list(i)[:3])])
+        print()
+        
+            
+        
+        #For every centroid, store distance from start of raw_cluster_data to that index centroid
         for i in raw_cluster_data[::-1]:
             encoded_centroid_bytes = tuple(list(i[:3]))
 
-            index_dictionary[encoded_centroid_bytes] = index_dictionary[encoded_centroid_bytes] + distance_from_end_of_cluster_index
+            
+            
+            
 
-            distance_from_end_of_cluster_index += len(i)
+            index_dictionary[encoded_centroid_bytes] = index_dictionary[encoded_centroid_bytes] + distance_from_end_of_cluster_index
+            print("distance from end of cluster index",encoded_centroid_bytes,distance_from_end_of_cluster_index)
+
+            cluster_index_entry = bytes(list(encoded_centroid_bytes)) + self.number_miniheader(index_dictionary[encoded_centroid_bytes])
+
+            cluster_index.insert(0,cluster_index_entry)
+
+            
+
+            distance_from_end_of_cluster_index += (len(cluster_index_entry)) #update distance from end of cluster index
+        connected_cluster_index = "".encode('utf-8')
+
+        for i in cluster_index:
+            connected_cluster_index+=i
+        
+        print(list(connected_cluster_index))
+        
+        connected_cluster_index += connected_raw_cluster_data
+
+        
+        
+        
+        #testing for loop
+        for k,v in index_dictionary.items():
+            print(k,v)
+            print(list(connected_cluster_index[v:v+3]))
+        
+            
+        
         
 
 
@@ -134,16 +179,24 @@ class RGB_Graph:
 
         for i in cluster_index:
             byte_result+=i
-        print("cluster dictionary")
+        # print("cluster dictionary")
 
-        for k in cluster_dictionary.keys():
-            print(k)
+        # for k in cluster_dictionary.keys():
+        #     print(k)
         
-        print("index dictionary")
+        # print("index dictionary")
 
-        for k,v in index_dictionary.items():
-            print(k,v)
-        print("after",length_of_raw_cluster_data)
+        # for k,v in index_dictionary.items():
+        #     print(k,v)
+        # print("after",length_of_raw_cluster_data)
+
+        #if set(cluster_dictionary.keys()) == set(index_dictionary.keys()): print("TWO EQUAL DICTIONARIES")
+
+        # temp_set = []
+        # for k,v in index_dictionary.items():
+        #     print(k,v)
+        #     print(list(byte_result[v:v+3]))
+        #if (set(temp_set) == set(index_dictionary.keys())): print("The indexing is successful")
 
         
         return byte_result
@@ -188,7 +241,11 @@ class RGB_Graph:
     def aggregate_byte_list(self,byte_list):
         result = ""
         for i in byte_list:
-            result += bin(i)[2:]
+            converted_bin_num = bin(i)[2:]
+            if len(bin(i)[2:]) < 8:
+                    converted_bin_num = (abs(len(converted_bin_num) - 8) * "0") + converted_bin_num
+            result += converted_bin_num
+            
         return int(result,2)
 
     #reads a classified rgb .bin file and compiles all of it into a dictionary field for ease of use
@@ -624,6 +681,8 @@ class RGB_Graph:
         
 #unit = RGB_Graph("colors.csv","csv")
 #unit = RGB_Graph("output.bin","unclass")
+
+
 
 while True:
     x = input("Enter: ")
