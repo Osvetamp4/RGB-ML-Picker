@@ -24,9 +24,9 @@ class RGB_Graph:
         self.RGB_color_clump = dict()
         self.centroid_list = []
         self.trained_cluster_dictionary = dict()
-        self.k=k
-        self.kn = kn
-        self.kc = kc
+        self.k=k # Number of clusters
+        self.kn = kn # Number of nearest neighbors
+        self.kc = kc # Number of nearest clusters
 
         if filetype == "csv":self.digest_csv(filepath)
         elif filetype == "unclass": self.digest_unclassified_RGB(filepath)
@@ -677,9 +677,25 @@ class RGB_Graph:
     def K_Nearest(self,data_point):
         if len(list(self.trained_cluster_dictionary)) == 0:
             self.digest_classified_RGB(self.filepath)
+        centroid_array = np.array([i for i in self.trained_cluster_dictionary.keys()])
+        # Now centroid_array contains all the centroids
 
+        # Find the k nearest centroids to the data_point
+        distances = np.linalg.norm(centroid_array - data_point, axis=1)
+        nearest_indices = np.argsort(distances)[:self.kc]
+        kn_centroid_array = centroid_array[nearest_indices]
+
+        cluster_space = set()
+        for i in kn_centroid_array:
+            cluster_space.update(t[:-1] for t in self.trained_cluster_dictionary[i])
         
-#unit = RGB_Graph("colors.csv","csv")
+        # find the k nearest rgb points to the data_point
+        rgb_points = np.array([i for i in cluster_space])
+        distances = np.linalg.norm(rgb_points - data_point, axis=1)
+        nearest_indices = np.argsort(distances)[:self.kn]
+        return rgb_points[nearest_indices]
+
+
 #unit = RGB_Graph("output.bin","unclass")
 
 
